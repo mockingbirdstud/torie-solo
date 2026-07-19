@@ -6,9 +6,15 @@ import {ALPHABET,consume,createGame,snapshot,useLetters,VOWELS} from './state'
 import {validateMove} from './validation'
 import type {Board,Player} from './types'
 const dict=createDictionary(true)
+const strictDict=createDictionary()
 const player=(available=ALPHABET):Player=>({id:0,name:'Player 1',score:0,cycle:1,vowelCycle:1,available:[...available]})
 const put=(board:Board,word:string,row:number,col:number,vertical=false)=>word.split('').forEach((letter,i)=>board[row+(vertical?i:0)][col+(vertical?0:i)]={letter,owner:0,moveId:1})
 describe('rule engine',()=>{
+ it('recognizes common spelled-out numbers in the strict dictionary',()=>{
+  for(const word of ['TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN','TWELVE','HUNDRED','THOUSAND']){
+   expect(strictDict.isValid(word)).toBe(true)
+  }
+ })
  it('accepts a first move anywhere on the board',()=>expect(validateMove(createBoard(),player(),{row:0,col:0,direction:'H',text:'CAT'},dict).valid).toBe(true))
  it('uses a 10 by 10 board',()=>{const b=createBoard();expect(b).toHaveLength(10);expect(b[0]).toHaveLength(10)})
  it('accepts a valid connected move',()=>{const b=createBoard();put(b,'CAT',4,4);expect(validateMove(b,player(),{row:3,col:5,direction:'V',text:'BAR'},dict).valid).toBe(true)})

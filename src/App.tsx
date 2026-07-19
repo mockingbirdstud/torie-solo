@@ -114,15 +114,16 @@ export default function App(){
    <section className="how-modal" role="dialog" aria-modal="true" aria-labelledby="how-title">
     <button className="how-close" onClick={()=>setShowHow(false)} aria-label="Close how to play">×</button>
     <p className="how-kicker">How to Play</p>
-    <h2 id="how-title">Build the Board.</h2>
-    <p>Score as many points as you can while filling the 10×10 board.</p>
+    <h2 id="how-title">The Ultimate Challenge.</h2>
+    <p>Build one connected network of valid words and claim as many of the board’s 100 spaces as you can.</p>
+    <p>Filling every space is Torie’s ultimate challenge. Every move changes what remains possible, so plan carefully, protect your options, and see how close you can get.</p>
     <p>Start your first word anywhere. Then build connected words by dragging your tiles onto the board, crossword style.</p>
     <h3>Use. Reset. Repeat.</h3>
     <p>You begin with one of every letter.</p>
     <ul><li>Use all five vowels and your vowels reset.</li><li>Use all your consonants and your full alphabet resets.</li></ul>
     <div className="game-changer"><h3>Game Changer</h3><p>Clear your vowels and consonants in the same move for a game-changing 10-point bonus.</p></div>
     <p>Every new tile scores 1 point, so plan ahead. The best move might not be the longest word—it might prepare your next reset or preserve room for more connected words.</p>
-    <p className="how-ending">The run ends when there are no more legal moves. Fill as much of the board as you can and set your highest score.</p>
+    <p className="how-ending">The run ends when there are no more legal moves. Chase all 100 spaces, set your highest score, and come back to beat it.</p>
    </section>
   </div>}
   {showScores&&<div className="score-overlay" role="presentation" onPointerDown={e=>{if(e.target===e.currentTarget&&!enteringScore)setShowScores(false)}}>
