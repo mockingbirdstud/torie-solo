@@ -137,9 +137,34 @@ h1 {
 }
 
 .board-toolbar {
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  height: 52px;
+  align-items: center;
   background: #151a18;
   border-bottom-color: #343b38;
+}
+
+.board-toolbar .how-button:first-child {
+  justify-self: start;
+}
+
+.board-toolbar .how-button:last-child {
+  justify-self: end;
+}
+
+.toolbar-brand {
+  display: grid;
+  place-items: center;
+}
+
+.toolbar-brand img {
+  display: block;
+  width: 112px;
+  max-width: 28vw;
+  max-height: 42px;
+  object-fit: contain;
 }
 
 .how-button {
@@ -810,7 +835,12 @@ body {
   }
 
   .board-toolbar {
-    height: 36px;
+    height: 48px;
+  }
+
+  .toolbar-brand img {
+    width: 96px;
+    max-height: 38px;
   }
 
   .move-bar {

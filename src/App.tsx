@@ -78,7 +78,6 @@ export default function App(){
   const p=game.players[0],active=game.status==='playing'
   const placed=new Set(tentative.map(x=>x.letter))
   return <aside data-rack="0" className={`rack player-0 ${active?'active':''}`}>
-   <div className="rack-head"><p>{p.name}</p><strong>{p.score}</strong><span>POINTS</span></div>
    <div className="rack-meta"><span>Alphabet {p.cycle} · Vowels {p.vowelCycle}</span><b>{p.available.length} tiles</b></div>
    <div className="pool-status"><span>{VOWELS.filter(v=>p.available.includes(v)).length} vowels</span><span>{p.available.filter(v=>!VOWELS.includes(v)).length} consonants</span></div>
    <div className="tile-rack">{ALPHABET.map(letter=>{const available=p.available.includes(letter),onBoard=active&&placed.has(letter);return <div className="tile-slot" key={letter}>{available&&!onBoard?<button className="letter-tile stone-0" disabled={!active} onPointerDown={e=>{if(active){e.preventDefault();startDrag(letter,e.clientX,e.clientY)}}}><span>{letter}</span></button>:<span className="empty-tile">{letter}</span>}</div>})}</div>
@@ -87,12 +86,15 @@ export default function App(){
  }
 
  return <div className={`app ${dragging?'is-dragging':''}`} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={()=>setDragging(null)}>
-  <header><div className="brand"><img src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/></div></header>
   <main className="table">
    <Rack/>
    <section className="play-area">
     <div className="board-card">
-     <div className="board-toolbar"><button className="how-button" onClick={()=>setShowHow(true)}>How to play</button><button className="how-button" onClick={()=>{setEnteringScore(false);setShowScores(true)}}>High scores</button></div>
+     <div className="board-toolbar">
+      <button className="how-button" onClick={()=>setShowHow(true)}>How to play</button>
+      <div className="toolbar-brand"><img src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/></div>
+      <button className="how-button" onClick={()=>{setEnteringScore(false);setShowScores(true)}}>High scores</button>
+     </div>
      <div className="board-wrap"><div className="board">{Array.from({length:BOARD_SIZE},(_,r)=><div key={r} style={{display:'contents'}}>{Array.from({length:BOARD_SIZE},(_,c)=>{const cell=game.board[r][c],pending=tentative.find(x=>x.row===r&&x.col===c);return <div key={`${r},${c}`} data-cell data-row={r} data-col={c} aria-label={`Row ${r+1}, column ${c+1}`} className={`cell ${CENTERS.has(`${r},${c}`)?'center':''} ${cell?`filled owner-${cell.owner}`:''} ${cell?.moveId===lastId?'last':''} ${pending?'tentative':''}`}>{pending?<button className={`letter-tile board-tile stone-${game.active}`} onPointerDown={e=>{e.preventDefault();startDrag(pending.letter,e.clientX,e.clientY,r,c)}}><span>{pending.letter}</span></button>:cell?<div className={`letter-tile placed-tile stone-${cell.owner}`}><span>{cell.letter}</span></div>:null}</div>})}</div>)}</div></div>
     </div>
     <section className="progress-strip" aria-label="Game progress">
