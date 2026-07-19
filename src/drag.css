@@ -1,0 +1,20 @@
+.app.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.letter-tile {
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0.94;
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 8px 16px #0005;
+}

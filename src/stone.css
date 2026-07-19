@@ -1,0 +1,92 @@
+.letter-tile {
+  overflow: hidden;
+  border-radius: 5px;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.letter-tile::before,
+.cell.filled::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    linear-gradient(118deg, transparent 22%, currentColor 23%, transparent 25%),
+    linear-gradient(36deg, transparent 67%, currentColor 68%, transparent 70%);
+}
+
+.stone-0,
+.cell.owner-0 {
+  color: #17191b;
+  border-color: #a9aaac;
+  background:
+    radial-gradient(circle at 22% 18%, #fff 0 12%, transparent 13%),
+    linear-gradient(145deg, #fafafa, #d3d5d6 52%, #f4f4f2);
+  box-shadow: inset 1px 1px 2px #fff, inset -1px -1px 2px #96999c, 1px 2px 3px #1114;
+}
+
+.stone-0::before,
+.cell.owner-0::before {
+  color: #8c9195;
+}
+
+.stone-1,
+.cell.owner-1 {
+  color: #f8f8f4;
+  border-color: #090a0b;
+  background:
+    radial-gradient(circle at 25% 18%, #4e5153 0 10%, transparent 11%),
+    linear-gradient(145deg, #3a3c3e, #090a0b 55%, #2b2d2f);
+  text-shadow: 0 1px 1px #000;
+  box-shadow: inset 1px 1px 2px #696c6e, inset -1px -1px 2px #000, 1px 2px 3px #1116;
+}
+
+.stone-1::before,
+.cell.owner-1::before {
+  color: #777b7e;
+}
+
+.cell.filled {
+  position: relative;
+  border-radius: 3px;
+}
+
+.cell.filled,
+.letter-tile span,
+.letter-tile small {
+  z-index: 1;
+}
+
+.cell.tentative {
+  background: #d9d0b7;
+  box-shadow: inset 0 0 0 2px #a58a42;
+}
+
+.board-tile {
+  outline: 2px solid #c9a74a;
+  outline-offset: -2px;
+}
+
+.pool-status {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px 6px;
+  color: #777168;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.legend .p1 {
+  background: linear-gradient(145deg, #fff, #c9ccce);
+}
+
+.legend .p2 {
+  background: linear-gradient(145deg, #4a4d4f, #08090a);
+}
+
+.legend .new {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px #c9a74a;
+}
