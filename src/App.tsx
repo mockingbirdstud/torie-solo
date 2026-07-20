@@ -103,11 +103,12 @@ export default function App(){
     </section>
     <section className="move-bar">
      <div className="move-state"><span className={check.result.valid?'ready':'waiting'}>{check.result.valid?'MOVE READY':'BUILD YOUR MOVE'}</span><strong>{check.result.valid?`${check.result.words.map(w=>w.word).join(' · ')}  |  +${check.result.score}${prospectiveCycle.bonus?' + 10 CYCLE CLEAR':''}`:check.result.errors[0]}</strong></div>
-     <div className="move-actions"><button onClick={()=>setTentative([])} disabled={!tentative.length}>Cancel</button><button className="submit" onClick={confirm} disabled={!check.result.valid}>Submit move</button></div>
-    </section>
-    <section className="game-strip">
-     <div><h3>Recent play</h3>{game.moves.at(-1)?<p>{game.moves.at(-1)!.words.map(w=>w.word).join(', ')} <b>+{game.moves.at(-1)!.baseScore}{game.moves.at(-1)!.bonus?` + ${game.moves.at(-1)!.bonus} cycle clear`:''}</b></p>:<p>No moves yet</p>}</div>
-     <div className="utility"><button onClick={()=>setConfirmAction('finish')}>Finish run</button><button onClick={()=>filledCount?setConfirmAction('new'):newGame()}>New game</button></div>
+     <div className="move-actions">
+      <button onClick={()=>setConfirmAction('finish')}>Finish run</button>
+      <button onClick={()=>filledCount?setConfirmAction('new'):newGame()}>New game</button>
+      <button onClick={()=>setTentative([])} disabled={!tentative.length}>Cancel</button>
+      <button className="submit" onClick={confirm} disabled={!check.result.valid}>Submit</button>
+     </div>
     </section>
    </section>
   </main>

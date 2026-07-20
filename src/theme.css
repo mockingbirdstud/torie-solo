@@ -286,12 +286,39 @@ h1 {
 }
 
 .move-bar {
+  display: grid;
+  min-height: 0;
+  gap: 7px;
   border-top: 0;
+  padding: 7px 10px 9px;
 }
 
-.game-strip {
-  background: #141816;
-  border-top: 0;
+.move-state {
+  max-width: none;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.move-state strong {
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.move-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  gap: 6px;
+}
+
+.move-actions button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 3px;
+  line-height: 1.1;
 }
 
 .move-state span.ready {
@@ -844,22 +871,18 @@ body {
   }
 
   .move-bar {
-    gap: 10px;
+    gap: 6px;
+    padding: 6px 8px 8px;
   }
 
   .move-state {
     min-width: 0;
   }
 
-  .move-actions button,
-  .utility button {
-    padding: 8px;
-  }
-
-  .game-strip {
-    height: auto;
-    min-height: 58px;
-    gap: 8px;
+  .move-actions button {
+    min-height: 34px;
+    padding: 5px 2px;
+    font-size: 9px;
   }
 
   .rack {
@@ -881,8 +904,8 @@ body {
 
 @media (max-width: 1024px) {
   .tile-rack {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    grid-template-rows: repeat(4, auto);
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    grid-template-rows: repeat(3, auto);
     gap: 6px;
   }
 }
