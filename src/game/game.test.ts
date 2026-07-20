@@ -15,6 +15,11 @@ describe('rule engine',()=>{
    expect(strictDict.isValid(word)).toBe(true)
   }
  })
+ it('uses the complete strict dictionary when searching for legal moves',()=>{
+  expect(strictDict.words.length).toBeGreaterThan(60000)
+  expect(strictDict.words).toContain('FIVE')
+  expect(strictDict.words.every(word=>strictDict.isValid(word))).toBe(true)
+ })
  it('accepts a first move anywhere on the board',()=>expect(validateMove(createBoard(),player(),{row:0,col:0,direction:'H',text:'CAT'},dict).valid).toBe(true))
  it('uses a 10 by 10 board',()=>{const b=createBoard();expect(b).toHaveLength(10);expect(b[0]).toHaveLength(10)})
  it('accepts a valid connected move',()=>{const b=createBoard();put(b,'CAT',4,4);expect(validateMove(b,player(),{row:3,col:5,direction:'V',text:'BAR'},dict).valid).toBe(true)})
