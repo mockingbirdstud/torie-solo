@@ -287,17 +287,21 @@ h1 {
 
 .move-bar {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   gap: 7px;
+  justify-content: stretch;
   border-top: 0;
   padding: 7px 10px 9px;
 }
 
 .move-state {
+  width: 100%;
   max-width: none;
   min-height: 34px;
   align-items: center;
   justify-content: center;
+  justify-self: stretch;
   gap: 2px;
   text-align: center;
 }
@@ -309,8 +313,9 @@ h1 {
 
 .move-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 2fr);
   width: 100%;
+  justify-self: stretch;
   gap: 6px;
 }
 
