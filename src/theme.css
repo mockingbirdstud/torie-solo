@@ -436,6 +436,19 @@ body {
   height: 100%;
 }
 
+.board-size-2 .letter-tile span {
+  font-size: 42px;
+}
+
+.board-size-3 .letter-tile span {
+  font-size: 34px;
+}
+
+.board-size-4 .letter-tile span,
+.board-size-5 .letter-tile span {
+  font-size: 25px;
+}
+
 .tile-slot {
   width: 100%;
   height: auto;
@@ -846,6 +859,34 @@ body {
   margin: 21px 0 0;
   color: #f0f3f1;
   font-weight: 700;
+}
+
+.level-notice {
+  position: fixed;
+  top: max(18px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 85;
+  display: flex;
+  min-width: 210px;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #c5e1dc;
+  border-radius: 4px;
+  padding: 11px 18px;
+  color: #10201d;
+  background: #a9cec6;
+  box-shadow: 0 12px 32px #000b;
+  letter-spacing: .12em;
+  transform: translateX(-50%);
+}
+
+.level-notice strong {
+  font-size: 11px;
+}
+
+.level-notice span {
+  font-size: 8px;
 }
 
 @media (max-width: 620px) {

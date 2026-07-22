@@ -8,5 +8,5 @@ export interface FormedWord { word: string; cells: {row:number;col:number}[]; va
 export interface ValidationResult { valid: boolean; errors: string[]; placements: PlacedLetter[]; words: FormedWord[]; score: number }
 export interface Move { id:number; player:PlayerId; row:number; col:number; direction:Direction; text:string; placements:PlacedLetter[]; words:FormedWord[]; score:number; baseScore:number; bonus:number }
 export interface Pass { player:PlayerId; turn:number; forced:boolean; time:string }
-export interface Snapshot { board:Board; players:Player[]; active:PlayerId; turn:number; moves:Move[]; passes:Pass[]; noMove:PlayerId[]; status:'playing'|'over' }
+export interface Snapshot { level:number; board:Board; players:Player[]; active:PlayerId; turn:number; moves:Move[]; passes:Pass[]; noMove:PlayerId[]; status:'playing'|'over' }
 export interface GameState extends Snapshot { undo: Snapshot[] }

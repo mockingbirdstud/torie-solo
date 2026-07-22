@@ -1,4 +1,4 @@
-import { BOARD_SIZE, hasTiles } from './board'
+import { hasTiles } from './board'
 import { scoreMove } from './scoring'
 import type { Board, Direction, FormedWord, PlacedLetter, Player, ValidationResult } from './types'
 import type { Dictionary } from './dictionary'
@@ -8,22 +8,24 @@ export interface MoveInput { row:number; col:number; direction:Direction; text:s
 export interface TentativeLetter { row:number; col:number; letter:string }
 
 function collectWord(board:Board, placed:Map<string,PlacedLetter>, row:number,col:number,dr:number,dc:number,dict:Dictionary):FormedWord|null {
+  const boardSize=board.length
   let r=row,c=col
   const at=(rr:number,cc:number)=>placed.get(`${rr},${cc}`)?.letter ?? board[rr]?.[cc]?.letter
   while(at(r-dr,c-dc)){r-=dr;c-=dc}
   const cells:{row:number;col:number}[]=[]; let word=''
-  while(r>=0&&c>=0&&r<BOARD_SIZE&&c<BOARD_SIZE&&at(r,c)){cells.push({row:r,col:c});word+=at(r,c);r+=dr;c+=dc}
+  while(r>=0&&c>=0&&r<boardSize&&c<boardSize&&at(r,c)){cells.push({row:r,col:c});word+=at(r,c);r+=dr;c+=dc}
   return word.length>=2?{word,cells,valid:dict.isValid(word)}:null
 }
 
 export function validateMove(board:Board, player:Player, input:MoveInput, dict:Dictionary):ValidationResult {
+  const boardSize=board.length
   const errors:string[]=[]; const placements:PlacedLetter[]=[]; const text=input.text.toUpperCase().replace(/\s/g,'')
   if(!/^[A-Z]+$/.test(text)) errors.push('Enter letters A–Z only.')
   const [dr,dc]=input.direction==='H'?[0,1]:[1,0]
   const used=new Set<string>()
   for(let i=0;i<text.length;i++){
     const row=input.row+dr*i,col=input.col+dc*i,letter=text[i]
-    if(row<0||col<0||row>=BOARD_SIZE||col>=BOARD_SIZE){errors.push('Move goes outside the board.');break}
+    if(row<0||col<0||row>=boardSize||col>=boardSize){errors.push('Move goes outside the board.');break}
     const cell=board[row][col]
     if(cell&&cell.letter!==letter) errors.push(`Cannot overwrite ${cell.letter} at ${row+1}, ${col+1}.`)
     if(!cell){
