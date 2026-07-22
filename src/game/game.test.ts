@@ -16,8 +16,9 @@ describe('rule engine',()=>{
   }
  })
  it('uses the complete strict dictionary when searching for legal moves',()=>{
-  expect(strictDict.words.length).toBeGreaterThan(60000)
+  expect(strictDict.words.length).toBeGreaterThan(120000)
   expect(strictDict.words).toContain('FIVE')
+  expect(strictDict.words).toContain('AALII')
   expect(strictDict.words.every(word=>strictDict.isValid(word))).toBe(true)
  })
  it('accepts a first move anywhere on the board',()=>expect(validateMove(createBoard(),player(),{row:0,col:0,direction:'H',text:'CAT'},dict).valid).toBe(true))

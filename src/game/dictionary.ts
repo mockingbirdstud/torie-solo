@@ -1,4 +1,4 @@
-import expandedWords from '../data/scowl60.json'
+import expandedWords from '../data/scowl80.json'
 const words=(expandedWords as string[]).map(w=>w.toUpperCase())
 const dictionary = new Set(words)
 export interface Dictionary { isValid(word:string):boolean; words:string[] }
