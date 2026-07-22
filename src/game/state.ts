@@ -8,7 +8,10 @@ export const CYCLE_CLEAR_BONUS=10
 export const createPlayer=(score=0):Player=>({id:0,name:'Player',score,cycle:1,vowelCycle:1,available:[...ALPHABET]})
 export const createGame=(level=1,score=0):GameState=>({level,board:createBoard(boardSizeForLevel(level)),players:[createPlayer(score)],active:0,turn:1,moves:[],passes:[],noMove:[],status:'playing',undo:[]})
 export const snapshot=(s:GameState):Snapshot=>structuredClone({level:s.level,board:s.board,players:s.players,active:s.active,turn:s.turn,moves:s.moves,passes:s.passes,noMove:s.noMove,status:s.status})
-export const advanceLevel=(s:GameState):GameState=>s.level<MAX_LEVEL?createGame(s.level+1,s.players[0].score):{...s,status:'over'}
+export const advanceLevel=(s:GameState):GameState=>s.level<MAX_LEVEL?{
+  ...createGame(s.level+1),
+  players:structuredClone(s.players),
+}:{...s,status:'over'}
 export interface LetterUseResult {player:Player;vowelsReset:boolean;alphabetReset:boolean;bonus:number}
 export function useLetters(player:Player,letters:string[]):LetterUseResult {
   const used=new Set(letters)
@@ -25,7 +28,3 @@ export function useLetters(player:Player,letters:string[]):LetterUseResult {
   return {player:{...player,available,cycle,vowelCycle},vowelsReset,alphabetReset,bonus}
 }
 export const consume=(player:Player,letters:string[])=>useLetters(player,letters).player
-export const spendLetters=(player:Player,letters:string[]):Player=>{
-  const used=new Set(letters)
-  return {...player,available:player.available.filter(letter=>!used.has(letter))}
-}

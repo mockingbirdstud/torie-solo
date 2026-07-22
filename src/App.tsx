@@ -2,7 +2,7 @@ import {useEffect,useMemo,useState} from 'react'
 import {boardSizeForLevel,createBoard,isBoardFull,MAX_LEVEL} from './game/board'
 import {createDictionary} from './game/dictionary'
 import {findLegalMove} from './game/legalMoveSearch'
-import {advanceLevel,ALPHABET,createGame,snapshot,spendLetters,VOWELS} from './game/state'
+import {advanceLevel,ALPHABET,createGame,snapshot,useLetters,VOWELS} from './game/state'
 import type {GameState} from './game/types'
 import {validateTentativeMove,type TentativeLetter} from './game/validation'
 
@@ -37,6 +37,7 @@ export default function App(){
  const boardSize=game.board.length
  const boardTotal=boardSize*boardSize
  const filledCount=game.board.reduce((total,row)=>total+row.filter(Boolean).length,0)
+ const previewBonus=check.result.valid?useLetters(player,check.result.placements.filter(x=>x.isNew).map(x=>x.letter)).bonus:0
  useEffect(()=>{if(game.status==='playing'&&game.moves.length>0&&!legal&&!tentative.length)finishRun(true)},[legal,game.status,game.moves.length,tentative.length])
  useEffect(()=>{if(!levelNotice)return;const timer=window.setTimeout(()=>setLevelNotice(null),1800);return()=>window.clearTimeout(timer)},[levelNotice])
 
@@ -67,9 +68,10 @@ export default function App(){
   setGame(old=>{const n=clone(old);n.undo.push(snapshot(old));const id=(n.moves.at(-1)?.id??0)+1
    for(const p of result.placements.filter(x=>x.isNew))n.board[p.row][p.col]={letter:p.letter,owner:p.owner,moveId:id}
    const used=result.placements.filter(x=>x.isNew).map(x=>x.letter)
-   const spent=spendLetters(n.players[game.active],used)
-   n.players[game.active]={...spent,score:n.players[game.active].score+result.score}
-   n.moves.push({id,player:game.active,...input,placements:result.placements,words:result.words,score:result.score,baseScore:result.score,bonus:0})
+   const cycleResult=useLetters(n.players[game.active],used)
+   const totalScore=result.score+cycleResult.bonus
+   n.players[game.active]={...cycleResult.player,score:n.players[game.active].score+totalScore}
+   n.moves.push({id,player:game.active,...input,placements:result.placements,words:result.words,score:totalScore,baseScore:result.score,bonus:cycleResult.bonus})
    n.turn++;n.noMove=[]
    if(isBoardFull(n.board))return advanceLevel(n)
    return n})
@@ -85,7 +87,7 @@ export default function App(){
   const placed=new Set(tentative.map(x=>x.letter))
   return <aside data-rack="0" className={`rack player-0 ${active?'active':''}`}>
    <div className="tile-rack">{ALPHABET.map(letter=>{const available=p.available.includes(letter),onBoard=active&&placed.has(letter);return <div className="tile-slot" key={letter}>{available&&!onBoard?<button className="letter-tile stone-0" disabled={!active} onPointerDown={e=>{if(active){e.preventDefault();startDrag(letter,e.clientX,e.clientY)}}}><span>{letter}</span></button>:<span className="empty-tile">{letter}</span>}</div>})}</div>
-   <div className="rack-meta"><span>Level {game.level} · One alphabet</span><b>{p.available.length} tiles</b></div>
+   <div className="rack-meta"><span>Alphabet {p.cycle} · Vowels {p.vowelCycle}</span><b>{p.available.length} tiles</b></div>
    <div className="pool-status"><span>{VOWELS.filter(v=>p.available.includes(v)).length} vowels</span><span>{p.available.filter(v=>!VOWELS.includes(v)).length} consonants</span></div>
    <div className="rack-status">{game.status==='over'?'Finished':active?'DRAG TILES TO THE BOARD':'WAITING'}</div>
   </aside>
@@ -101,14 +103,14 @@ export default function App(){
       <div className="toolbar-brand"><img src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/></div>
       <button className="how-button" onClick={()=>{setEnteringScore(false);setShowScores(true)}}>High scores</button>
      </div>
-     <div className="board-wrap"><div className={`board board-size-${boardSize}`} style={{gridTemplateColumns:`repeat(${boardSize}, minmax(0, 1fr))`}}>{Array.from({length:boardSize},(_,r)=><div key={r} style={{display:'contents'}}>{Array.from({length:boardSize},(_,c)=>{const cell=game.board[r][c],pending=tentative.find(x=>x.row===r&&x.col===c);return <div key={`${r},${c}`} data-cell data-row={r} data-col={c} aria-label={`Row ${r+1}, column ${c+1}`} className={`cell ${cell?`filled owner-${cell.owner}`:''} ${cell?.moveId===lastId?'last':''} ${pending?'tentative':''}`}>{pending?<button className={`letter-tile board-tile stone-${game.active}`} onPointerDown={e=>{e.preventDefault();startDrag(pending.letter,e.clientX,e.clientY,r,c)}}><span>{pending.letter}</span></button>:cell?<div className={`letter-tile placed-tile stone-${cell.owner}`}><span>{cell.letter}</span></div>:null}</div>})}</div>)}</div></div>
+     <div className="board-wrap"><div className="board" style={{gridTemplateColumns:`repeat(${boardSize}, minmax(0, 1fr))`,width:`${boardSize*10}%`}}>{Array.from({length:boardSize},(_,r)=><div key={r} style={{display:'contents'}}>{Array.from({length:boardSize},(_,c)=>{const cell=game.board[r][c],pending=tentative.find(x=>x.row===r&&x.col===c);return <div key={`${r},${c}`} data-cell data-row={r} data-col={c} aria-label={`Row ${r+1}, column ${c+1}`} className={`cell ${cell?`filled owner-${cell.owner}`:''} ${cell?.moveId===lastId?'last':''} ${pending?'tentative':''}`}>{pending?<button className={`letter-tile board-tile stone-${game.active}`} onPointerDown={e=>{e.preventDefault();startDrag(pending.letter,e.clientX,e.clientY,r,c)}}><span>{pending.letter}</span></button>:cell?<div className={`letter-tile placed-tile stone-${cell.owner}`}><span>{cell.letter}</span></div>:null}</div>})}</div>)}</div></div>
     </div>
     <section className="progress-strip" aria-label="Game progress">
      <div><span>Points</span><strong>{game.players[0].score}</strong></div>
      <div><span>Level {game.level} · {boardSize}×{boardSize}</span><strong>{filledCount}<small>/{boardTotal}</small></strong></div>
     </section>
     <section className="move-bar">
-     <div className="move-state"><span className={check.result.valid?'ready':'waiting'}>{check.result.valid?'MOVE READY':'BUILD YOUR MOVE'}</span><strong>{check.result.valid?`${check.result.words.map(w=>w.word).join(' · ')}  |  +${check.result.score}`:check.result.errors[0]}</strong></div>
+     <div className="move-state"><span className={check.result.valid?'ready':'waiting'}>{check.result.valid?'MOVE READY':'BUILD YOUR MOVE'}</span><strong>{check.result.valid?`${check.result.words.map(w=>w.word).join(' · ')}  |  +${check.result.score}${previewBonus?` + ${previewBonus} reset bonus`:''}`:check.result.errors[0]}</strong></div>
      <div className="move-actions">
       <button onClick={()=>setConfirmAction('finish')}>Finish run</button>
       <button onClick={()=>filledCount?setConfirmAction('new'):newGame()}>New game</button>
@@ -125,11 +127,11 @@ export default function App(){
     <p className="how-kicker">How to Play</p>
     <h2 id="how-title">Build Your Way to 100.</h2>
     <p>Begin with four spaces. Fill each connected board with valid words to unlock the next square: 4, 9, 16, 25—and ultimately 100.</p>
-    <p>Every level begins with one fresh alphabet. A letter can be placed only once during that level, so every choice changes what remains possible.</p>
+    <p>Your letters carry forward from one level to the next. Every early choice changes what remains possible on the larger boards ahead.</p>
     <p>Start your first word anywhere. Then build connected words by dragging your tiles onto the board, crossword style.</p>
     <h3>Use Every Letter Wisely.</h3>
-    <p>Letters do not reset during a level. Complete the board and a fresh alphabet is waiting on the next one.</p>
-    <p>Every new tile scores 1 point. Your points carry forward as the boards grow, so plan for both completion and a record score.</p>
+    <p>Use all five vowels and they refresh. Use every consonant and the full alphabet refreshes. Clear both together to earn a 10-point bonus.</p>
+    <p>Every new tile scores 1 point. Your letters and points carry forward as the boards grow, so plan for the board in front of you—and the levels still to come.</p>
     <p className="how-ending">The run ends when there are no legal moves left. How many square levels can you conquer?</p>
    </section>
   </div>}
