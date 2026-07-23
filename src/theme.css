@@ -154,6 +154,17 @@ h1 {
   justify-self: end;
 }
 
+.toolbar-left {
+  display: flex;
+  justify-self: start;
+  gap: 5px;
+}
+
+.toolbar-left .how-button {
+  padding-inline: 7px;
+  font-size: 8px;
+}
+
 .toolbar-brand {
   display: grid;
   place-items: center;
@@ -877,6 +888,161 @@ body {
   font-size: 8px;
 }
 
+/* Home and mode selection */
+.home-app {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: max(22px, env(safe-area-inset-top)) 18px max(28px, env(safe-area-inset-bottom));
+}
+
+.home-screen {
+  width: min(100%, 420px);
+  border: 1px solid #303633;
+  padding: 28px 24px 24px;
+  background: #101412;
+  box-shadow: 0 18px 55px #000a;
+  text-align: center;
+}
+
+.home-logo {
+  display: block;
+  width: min(250px, 72vw);
+  max-height: 96px;
+  margin: 0 auto 24px;
+  object-fit: contain;
+}
+
+.home-kicker {
+  margin: 0 0 8px;
+  color: #a8d0cc;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+.home-screen h1 {
+  min-width: 0;
+  margin: 0 0 23px;
+  padding: 0;
+  clip-path: none;
+  color: #f0f4f2;
+  background: none;
+  box-shadow: none;
+  font: 700 27px/1.15 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -.025em;
+  transform: none;
+}
+
+.mode-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.mode-card {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  border: 1px solid #46504c;
+  border-radius: 4px;
+  padding: 17px 18px;
+  color: #dce4e1;
+  background: #171d1b;
+  text-align: left;
+}
+
+.mode-card.primary {
+  border-color: #a9cec6;
+  background: #18231f;
+}
+
+.mode-card span {
+  color: #a8d0cc;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.mode-card strong {
+  color: #f1f5f3;
+  font-size: 19px;
+}
+
+.mode-card small {
+  margin-top: 3px;
+  color: #9ea8a4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.mode-card:hover,
+.mode-card:focus-visible,
+.level-grid button:hover,
+.level-grid button:focus-visible {
+  border-color: #c5e1dc;
+  background: #202b27;
+}
+
+.home-how,
+.home-back {
+  margin-top: 19px;
+  border: 0;
+  padding: 7px 10px;
+  color: #9fb9b4;
+  background: transparent;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.level-intro {
+  max-width: 310px;
+  margin: -11px auto 21px;
+  color: #99a39f;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.level-grid button {
+  display: flex;
+  min-height: 68px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #3d4642;
+  border-radius: 4px;
+  color: #e7eeeb;
+  background: #171d1b;
+}
+
+.level-grid strong {
+  font-size: 18px;
+}
+
+.level-grid span {
+  color: #87928d;
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.gameover-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
 @media (max-width: 620px) {
   .app {
     padding: 8px 12px 24px;
@@ -902,6 +1068,15 @@ body {
   .toolbar-brand img {
     width: 96px;
     max-height: 38px;
+  }
+
+  .toolbar-left {
+    gap: 3px;
+  }
+
+  .toolbar-left .how-button {
+    padding-inline: 5px;
+    font-size: 7px;
   }
 
   .move-bar {
@@ -933,6 +1108,10 @@ body {
 
   .how-modal h2 {
     font-size: 24px;
+  }
+
+  .home-screen {
+    padding: 24px 18px 20px;
   }
 }
 
