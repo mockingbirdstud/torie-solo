@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from 'react'
-import {boardSizeForLevel,createBoard,isBoardFull,MAX_LEVEL} from './game/board'
+import {boardSizeForLevel,createBoard,isBoardFull,MAX_BOARD_SIZE,MAX_LEVEL} from './game/board'
 import {createDictionary} from './game/dictionary'
 import {advanceLevel,ALPHABET,createGame,snapshot,useLetters,VOWELS} from './game/state'
 import type {Board,GameState} from './game/types'
@@ -7,13 +7,14 @@ import {validateTentativeMove,type TentativeLetter} from './game/validation'
 
 const clone=<T,>(x:T):T=>structuredClone(x)
 type DragTile={letter:string;row?:number;col?:number}
-type GameMode='journey'|'level'
-type Screen='home'|'levels'|'game'
+type GameMode='journey'|'classic'
+type Screen='home'|'game'
 type MoveCheck='idle'|'checking'|'found'|'none'
-interface HighScore {initials:string;score:number;filled:number;level?:number;mode?:GameMode;date:string}
+interface HighScore {initials:string;score:number;filled:number;level?:number;mode?:GameMode|'level';date:string}
 const HIGH_SCORE_KEY='torie-solo-high-scores'
 const loadHighScores=():HighScore[]=>{try{return JSON.parse(localStorage.getItem(HIGH_SCORE_KEY)??'[]')}catch{return []}}
 const ranksAbove=(a:HighScore,b:HighScore)=>b.score-a.score||b.filled-a.filled
+const scoreMode=(entry:HighScore):GameMode=>entry.mode==='level'?'classic':entry.mode??'journey'
 const SHARE_URL='https://mockingbirdstud.github.io/torie-solo/'
 
 function roundedRect(context:CanvasRenderingContext2D,x:number,y:number,width:number,height:number,radius:number){
@@ -42,7 +43,6 @@ function boardImage(board:Board):Promise<Blob>{
 export default function App(){
  const [screen,setScreen]=useState<Screen>('home')
  const [mode,setMode]=useState<GameMode>('journey')
- const [selectedLevel,setSelectedLevel]=useState(1)
  const [game,setGame]=useState<GameState>(createGame)
  const [tentative,setTentative]=useState<TentativeLetter[]>([])
  const [dragging,setDragging]=useState<DragTile|null>(null)
@@ -73,10 +73,10 @@ export default function App(){
  const previewBonus=check.result.valid?useLetters(player,check.result.placements.filter(x=>x.isNew).map(x=>x.letter)).bonus:0
  const moveHeadline=tentative.length?(check.result.valid?'MOVE READY':'BUILD YOUR MOVE'):moveCheck==='checking'?'CHECKING FOR MOVES':moveCheck==='found'?'MOVE AVAILABLE':moveCheck==='none'?'NO MOVE FOUND':'BUILD YOUR MOVE'
  const moveDetail=tentative.length?(check.result.valid?`${check.result.words.map(w=>w.word).join(' · ')}  |  +${check.result.score}${previewBonus?` + ${previewBonus} reset bonus`:''}`:check.result.errors[0]):moveCheck==='checking'?'You can keep viewing the board while Torie checks.':moveCheck==='found'?'At least one legal move is still available.':moveCheck==='none'?'No legal move was found. Finish the run when you are ready.':'Drag at least one tile onto the board.'
- const scoreScope=highScores.filter(entry=>(entry.mode??'journey')===mode&&(mode==='journey'||(entry.level??1)===game.level))
+ const leaderboard=[...highScores].sort(ranksAbove).slice(0,10)
  useEffect(()=>()=>moveWorker.current?.terminate(),[])
  useEffect(()=>{if(!levelNotice)return;const timer=window.setTimeout(()=>setLevelNotice(null),1800);return()=>window.clearTimeout(timer)},[levelNotice])
- useEffect(()=>{if(mode!=='level'||game.status!=='over'||!isBoardFull(game.board))return;const candidate={initials:'',score:game.players[0].score,filled:boardTotal,level:game.level,mode,date:''};const qualifies=scoreScope.length<10||ranksAbove(candidate,scoreScope.at(-1)!)<0;setInitials('');setEnteringScore(qualifies);setShowScores(true)},[game.status])
+ useEffect(()=>{if(mode!=='classic'||game.status!=='over'||!isBoardFull(game.board))return;const candidate={initials:'',score:game.players[0].score,filled:boardTotal,level:game.level,mode,date:''};const qualifies=leaderboard.length<10||ranksAbove(candidate,leaderboard.at(-1)!)<0;setInitials('');setEnteringScore(qualifies);setShowScores(true)},[game.status])
 
  function cancelMoveCheck(){moveRequest.current++;moveWorker.current?.terminate();moveWorker.current=null;setMoveCheck('idle')}
  function checkForMoves(){
@@ -126,19 +126,19 @@ export default function App(){
   if(completesLevel&&mode==='journey'&&game.level<MAX_LEVEL)setLevelNotice(game.level+1)
   setTentative([])
  }
- function finishRun(automatic=false){const candidate={initials:'',score:player.score,filled:filledCount,level:game.level,mode,date:''};const qualifies=scoreScope.length<10||ranksAbove(candidate,scoreScope.at(-1)!)<0;setGame(old=>{if(old.status==='over')return old;const n=clone(old);n.undo.push(snapshot(old));n.noMove=[0];n.passes.push({player:0,turn:n.turn,forced:automatic,time:new Date().toLocaleTimeString()});n.status='over';return n});setTentative([]);setConfirmAction(null);setInitials('');setShareReady(false);setShareStatus('');setEnteringScore(qualifies);setShowScores(true)}
+ function finishRun(automatic=false){const candidate={initials:'',score:player.score,filled:filledCount,level:game.level,mode,date:''};const qualifies=leaderboard.length<10||ranksAbove(candidate,leaderboard.at(-1)!)<0;setGame(old=>{if(old.status==='over')return old;const n=clone(old);n.undo.push(snapshot(old));n.noMove=[0];n.passes.push({player:0,turn:n.turn,forced:automatic,time:new Date().toLocaleTimeString()});n.status='over';return n});setTentative([]);setConfirmAction(null);setInitials('');setShareReady(false);setShareStatus('');setEnteringScore(qualifies);setShowScores(true)}
  function resetOverlays(){cancelMoveCheck();setTentative([]);setDragging(null);setShowScores(false);setEnteringScore(false);setInitials('');setConfirmAction(null);setLevelNotice(null);setShareReady(false);setShareStatus('')}
- function startJourney(){setMode('journey');setSelectedLevel(1);setGame(createGame());resetOverlays();setScreen('game')}
- function startLevel(level:number){setMode('level');setSelectedLevel(level);setGame(createGame(level));resetOverlays();setScreen('game')}
- function newGame(){setGame(createGame(mode==='journey'?1:selectedLevel));resetOverlays()}
+ function startJourney(){setMode('journey');setGame(createGame());resetOverlays();setScreen('game')}
+ function startClassic(){setMode('classic');setGame(createGame(MAX_LEVEL));resetOverlays();setScreen('game')}
+ function newGame(){setGame(createGame(mode==='journey'?1:MAX_LEVEL));resetOverlays()}
  function goHome(){resetOverlays();setScreen('home')}
  function mutate(fn:(n:GameState)=>void){setGame(old=>{const n=clone(old);n.undo.push(snapshot(old));fn(n);return n});setTentative([])}
- function saveHighScore(){if(initials.length!==3)return;const entry={initials,score:player.score,filled:filledCount,level:game.level,mode,date:new Date().toLocaleDateString()};const other=highScores.filter(item=>(item.mode??'journey')!==mode||(mode==='level'&&(item.level??1)!==game.level));const scoped=[...scoreScope,entry].sort(ranksAbove).slice(0,10);const next=[...other,...scoped];setHighScores(next);localStorage.setItem(HIGH_SCORE_KEY,JSON.stringify(next));setEnteringScore(false);setShareReady(true)}
+ function saveHighScore(){if(initials.length!==3)return;const entry={initials,score:player.score,filled:filledCount,level:game.level,mode,date:new Date().toLocaleDateString()};const next=[...highScores,entry].sort(ranksAbove).slice(0,10);setHighScores(next);localStorage.setItem(HIGH_SCORE_KEY,JSON.stringify(next));setEnteringScore(false);setShareReady(true)}
  async function shareResult(){
   setShareStatus('Preparing result…')
   try{
    const blob=await boardImage(game.board)
-   const label=mode==='journey'?`Journey · Level ${game.level}`:`Level Play · ${boardSize}×${boardSize}`
+   const label=mode==='journey'?`Journey · Level ${game.level}`:`Classic · ${boardSize}×${boardSize}`
    const text=`Torie ${label}\n${player.score} points · ${filledCount}/${boardTotal} spaces\nCan you beat my score?\n${SHARE_URL}`
    const file=new File([blob],`torie-${mode}-${boardSize}x${boardSize}.png`,{type:'image/png'})
    if(navigator.share&&navigator.canShare?.({files:[file]})){
@@ -165,21 +165,12 @@ export default function App(){
  return <div className={`app ${screen!=='game'?'home-app':''} ${dragging?'is-dragging':''}`} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={()=>setDragging(null)}>
   {screen!=='game'?<main className="home-screen">
    <img className="home-logo" src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/>
-   {screen==='home'?<>
-    <p className="home-kicker">A SOLO WORD STRATEGY GAME</p>
-    <h1>How do you want to play?</h1>
-    <div className="mode-cards">
-     <button className="mode-card primary" onClick={startJourney}><span>Journey</span><strong>Begin at 2×2</strong><small>Your letters, score, and decisions carry forward as each new board unlocks.</small></button>
-     <button className="mode-card" onClick={()=>setScreen('levels')}><span>Choose a Level</span><strong>Practice any board</strong><small>Start fresh on the board size you want and test your strategy at your own pace.</small></button>
-    </div>
-    <button className="home-how" onClick={()=>setShowHow(true)}>How to play</button>
-   </>:<>
-    <p className="home-kicker">LEVEL PLAY</p>
-    <h1>Choose your board.</h1>
-    <p className="level-intro">Each level begins with a fresh alphabet and uses Torie's normal reset rules.</p>
-    <div className="level-grid">{Array.from({length:MAX_LEVEL},(_,index)=>{const level=index+1,size=boardSizeForLevel(level);return <button key={level} onClick={()=>startLevel(level)}><strong>{size}×{size}</strong><span>{size*size} spaces</span></button>})}</div>
-    <button className="home-back" onClick={()=>setScreen('home')}>← Back</button>
-   </>}
+   <p className="home-kicker">THE ULTIMATE WORD PUZZLE</p>
+   <div className="mode-cards">
+    <button className="mode-card primary" onClick={startClassic}>CLASSIC</button>
+    <button className="mode-card" onClick={startJourney}>JOURNEY</button>
+   </div>
+   <button className="home-how" onClick={()=>setShowHow(true)}>How to play</button>
   </main>:<>
   <main className="table">
    <Rack/>
@@ -190,11 +181,11 @@ export default function App(){
       <div className="toolbar-brand"><img src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/></div>
       <button className="how-button" onClick={()=>{setEnteringScore(false);setShareReady(false);setShareStatus('');setShowScores(true)}}>High scores</button>
      </div>
-     <div className="board-wrap"><div className="board" style={{gridTemplateColumns:`repeat(${boardSize}, minmax(0, 1fr))`,width:`${boardSize*10}%`}}>{Array.from({length:boardSize},(_,r)=><div key={r} style={{display:'contents'}}>{Array.from({length:boardSize},(_,c)=>{const cell=game.board[r][c],pending=tentative.find(x=>x.row===r&&x.col===c);return <div key={`${r},${c}`} data-cell data-row={r} data-col={c} aria-label={`Row ${r+1}, column ${c+1}`} className={`cell ${cell?`filled owner-${cell.owner}`:''} ${cell?.moveId===lastId?'last':''} ${pending?'tentative':''}`}>{pending?<button className={`letter-tile board-tile stone-${game.active}`} onPointerDown={e=>{e.preventDefault();startDrag(pending.letter,e.clientX,e.clientY,r,c)}}><span>{pending.letter}</span></button>:cell?<div className={`letter-tile placed-tile stone-${cell.owner}`}><span>{cell.letter}</span></div>:null}</div>})}</div>)}</div></div>
+     <div className="board-wrap"><div className="board" style={{gridTemplateColumns:`repeat(${boardSize}, minmax(0, 1fr))`,width:`${boardSize/MAX_BOARD_SIZE*100}%`}}>{Array.from({length:boardSize},(_,r)=><div key={r} style={{display:'contents'}}>{Array.from({length:boardSize},(_,c)=>{const cell=game.board[r][c],pending=tentative.find(x=>x.row===r&&x.col===c);return <div key={`${r},${c}`} data-cell data-row={r} data-col={c} aria-label={`Row ${r+1}, column ${c+1}`} className={`cell ${cell?`filled owner-${cell.owner}`:''} ${cell?.moveId===lastId?'last':''} ${pending?'tentative':''}`}>{pending?<button className={`letter-tile board-tile stone-${game.active}`} onPointerDown={e=>{e.preventDefault();startDrag(pending.letter,e.clientX,e.clientY,r,c)}}><span>{pending.letter}</span></button>:cell?<div className={`letter-tile placed-tile stone-${cell.owner}`}><span>{cell.letter}</span></div>:null}</div>})}</div>)}</div></div>
     </div>
     <section className="progress-strip" aria-label="Game progress">
      <div><span>Points</span><strong>{game.players[0].score}</strong></div>
-     <div><span>Level {game.level} · {boardSize}×{boardSize}</span><strong>{filledCount}<small>/{boardTotal}</small></strong></div>
+     <div><span>{mode==='journey'?`Level ${game.level}`:'Classic'} · {boardSize}×{boardSize}</span><strong>{filledCount}<small>/{boardTotal}</small></strong></div>
     </section>
     <section className="move-bar">
      <div className="move-state"><span className={tentative.length&&check.result.valid||moveCheck==='found'?'ready':'waiting'}>{moveHeadline}</span><strong>{moveDetail}</strong></div>
@@ -215,11 +206,11 @@ export default function App(){
     <p className="how-kicker">How to Play</p>
     <h2 id="how-title">Build Connected Words.</h2>
     <p>Drag letters onto the board and connect valid words crossword-style. Start the first word anywhere, then make every new move touch the words already in play.</p>
+    <h3>Classic</h3>
+    <p>Take on the full 8×8 puzzle with a fresh alphabet and Torie's normal letter-reset rules. Fill all 64 spaces—or finish the run when you have gone as far as you can.</p>
     <h3>Journey</h3>
-    <p>Begin with four spaces. Fill each board to unlock the next square: 4, 9, 16, 25—and ultimately 100.</p>
+    <p>Begin with four spaces. Fill each board to unlock the next square: 4, 9, 16, 25, 36, 49—and ultimately 64.</p>
     <p>Your letters carry forward from one level to the next. Every early choice changes what remains possible on the larger boards ahead.</p>
-    <h3>Level Play</h3>
-    <p>Choose any board from 2×2 through 10×10. Each practice run begins with a fresh alphabet and ends when you finish the board, finish the run, or run out of legal moves.</p>
     <h3>Use Every Letter Wisely.</h3>
     <p>Use all five vowels and they refresh. Use every consonant and the full alphabet refreshes. Clear both together to earn a 10-point bonus.</p>
     <p>Every new tile scores 1 point. Your letters and points carry forward as the boards grow, so plan for the board in front of you—and the levels still to come.</p>
@@ -230,24 +221,24 @@ export default function App(){
   {showScores&&<div className="score-overlay" role="presentation" onPointerDown={e=>{if(e.target===e.currentTarget&&!enteringScore)setShowScores(false)}}>
    <section className="score-modal" role="dialog" aria-modal="true" aria-labelledby="scores-title">
     {!enteringScore&&<button className="how-close" onClick={()=>setShowScores(false)} aria-label="Close high scores">×</button>}
-    <p className="how-kicker">{mode==='journey'?'Journey':`${boardSize}×${boardSize} Level Play`}</p>
+    <p className="how-kicker">Torie Top 10</p>
     <h2 id="scores-title">{enteringScore?'New High Score':'High Scores'}</h2>
-    {enteringScore&&<div className="score-entry"><p><strong>{player.score}</strong> points · Level {game.level} · {filledCount}/{boardTotal}</p><label htmlFor="initials">Enter your initials</label><input id="initials" value={initials} maxLength={3} autoComplete="off" inputMode="text" onChange={e=>setInitials((e.target.value.match(/[A-Za-z]/g)??[]).join('').toUpperCase().slice(0,3))} placeholder="AAA"/><button onClick={saveHighScore} disabled={initials.length!==3}>Save score</button></div>}
+    {enteringScore&&<div className="score-entry"><p><strong>{player.score}</strong> points · {mode==='journey'?`Journey Level ${game.level}`:'Classic'} · {filledCount}/{boardTotal}</p><label htmlFor="initials">Enter your initials</label><input id="initials" value={initials} maxLength={3} autoComplete="off" inputMode="text" onChange={e=>setInitials((e.target.value.match(/[A-Za-z]/g)??[]).join('').toUpperCase().slice(0,3))} placeholder="AAA"/><button onClick={saveHighScore} disabled={initials.length!==3}>Save score</button></div>}
     {shareReady&&<div className="share-result"><button onClick={shareResult}>Share Result</button><p>Share a letterless picture of this board with your score and a link to Torie.</p>{shareStatus&&<span role="status">{shareStatus}</span>}</div>}
-    <ol className="score-list">{scoreScope.map((entry,index)=><li key={`${entry.initials}-${entry.score}-${entry.filled}-${entry.date}-${index}`}><span className="score-rank">{index+1}</span><b>{entry.initials}</b><strong>{entry.score}</strong><span>{mode==='journey'?`L${entry.level??1}`:`${entry.filled}/${boardTotal}`}</span><small>{entry.date}</small></li>)}</ol>
-    {!enteringScore&&scoreScope.length===0&&<p className="empty-scores">No scores yet. Finish a run to set the first one.</p>}
+    <ol className="score-list">{leaderboard.map((entry,index)=><li key={`${entry.initials}-${entry.score}-${entry.filled}-${entry.date}-${index}`}><span className="score-rank">{index+1}</span><b>{entry.initials}</b><strong>{entry.score}</strong><span>{scoreMode(entry)==='classic'?'Classic':`Journey L${entry.level??1}`}</span><small>{entry.date}</small></li>)}</ol>
+    {!enteringScore&&leaderboard.length===0&&<p className="empty-scores">No scores yet. Finish a run to set the first one.</p>}
    </section>
   </div>}
   {confirmAction&&<div className="score-overlay" role="presentation" onPointerDown={e=>{if(e.target===e.currentTarget)setConfirmAction(null)}}>
    <section className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
     <p className="how-kicker">{confirmAction==='finish'?'Bank your score':'Start over'}</p>
     <h2 id="confirm-title">{confirmAction==='finish'?'Finish this run?':'Start a new game?'}</h2>
-    <p>{confirmAction==='finish'?`Finish with ${player.score} points on Level ${game.level}, with ${filledCount}/${boardTotal} spaces filled? Your score can qualify for the Top 10.`:'Your current score and level progress will be discarded.'}</p>
+    <p>{confirmAction==='finish'?`Finish with ${player.score} points in ${mode==='journey'?`Journey Level ${game.level}`:'Classic'}, with ${filledCount}/${boardTotal} spaces filled? Your score can qualify for the Top 10.`:'Your current score and progress will be discarded.'}</p>
     <div className="confirm-actions"><button onClick={()=>setConfirmAction(null)}>Keep playing</button><button className="confirm-primary" onClick={()=>confirmAction==='finish'?finishRun(false):newGame()}>{confirmAction==='finish'?'Finish run':'New game'}</button></div>
    </section>
   </div>}
   {levelNotice&&<div className="level-notice" role="status"><strong>LEVEL {levelNotice} UNLOCKED</strong><span>{boardSizeForLevel(levelNotice)}×{boardSizeForLevel(levelNotice)} BOARD</span></div>}
   {dragging&&<div className={`drag-ghost letter-tile stone-${game.active}`} style={{left:dragPoint.x,top:dragPoint.y}}><span>{dragging.letter}</span></div>}
-  {screen==='game'&&game.status==='over'&&!showScores&&<div className="gameover"><div><p>{mode==='journey'?'JOURNEY COMPLETE':'LEVEL COMPLETE'}</p><h2>{boardSize}×{boardSize} · {filledCount} of {boardTotal} spaces</h2><strong>{game.players[0].score} points</strong>{shareReady&&<><button className="gameover-share" onClick={shareResult}>Share Result</button>{shareStatus&&<small className="gameover-share-status">{shareStatus}</small>}</>}<div className="gameover-actions"><button onClick={goHome}>Home</button><button onClick={newGame}>Play again</button></div></div></div>}
+  {screen==='game'&&game.status==='over'&&!showScores&&<div className="gameover"><div><p>{mode==='journey'?'JOURNEY COMPLETE':'CLASSIC COMPLETE'}</p><h2>{boardSize}×{boardSize} · {filledCount} of {boardTotal} spaces</h2><strong>{game.players[0].score} points</strong>{shareReady&&<><button className="gameover-share" onClick={shareResult}>Share Result</button>{shareStatus&&<small className="gameover-share-status">{shareStatus}</small>}</>}<div className="gameover-actions"><button onClick={goHome}>Home</button><button onClick={newGame}>Play again</button></div></div></div>}
  </div>
 }
