@@ -2,7 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react'
 import {boardSizeForLevel,createBoard,isBoardFull,MAX_LEVEL} from './game/board'
 import {createDictionary} from './game/dictionary'
 import {advanceLevel,ALPHABET,createGame,snapshot,useLetters,VOWELS} from './game/state'
-import type {GameState} from './game/types'
+import type {Board,GameState} from './game/types'
 import {validateTentativeMove,type TentativeLetter} from './game/validation'
 
 const clone=<T,>(x:T):T=>structuredClone(x)
@@ -14,6 +14,30 @@ interface HighScore {initials:string;score:number;filled:number;level?:number;mo
 const HIGH_SCORE_KEY='torie-solo-high-scores'
 const loadHighScores=():HighScore[]=>{try{return JSON.parse(localStorage.getItem(HIGH_SCORE_KEY)??'[]')}catch{return []}}
 const ranksAbove=(a:HighScore,b:HighScore)=>b.score-a.score||b.filled-a.filled
+const SHARE_URL='https://mockingbirdstud.github.io/torie-solo/'
+
+function roundedRect(context:CanvasRenderingContext2D,x:number,y:number,width:number,height:number,radius:number){
+ context.beginPath();context.roundRect(x,y,width,height,radius);context.fill()
+}
+
+function boardImage(board:Board):Promise<Blob>{
+ const canvas=document.createElement('canvas'),size=1080,padding=54
+ canvas.width=size;canvas.height=size
+ const context=canvas.getContext('2d')!
+ context.fillStyle='#090c0b';context.fillRect(0,0,size,size)
+ const boardSize=board.length,area=size-padding*2,cell=area/boardSize
+ context.fillStyle='#343a38';context.fillRect(padding,padding,area,area)
+ for(let row=0;row<boardSize;row++)for(let col=0;col<boardSize;col++){
+  const x=padding+col*cell,y=padding+row*cell
+  context.fillStyle='#303634';context.fillRect(x+2,y+2,cell-4,cell-4)
+  if(board[row][col]){
+   const inset=Math.max(5,cell*.07)
+   context.fillStyle='#abcfc8'
+   roundedRect(context,x+inset,y+inset,cell-inset*2,cell-inset*2,Math.max(5,cell*.1))
+  }
+ }
+ return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Image creation failed.')),'image/png'))
+}
 
 export default function App(){
  const [screen,setScreen]=useState<Screen>('home')
@@ -35,6 +59,8 @@ export default function App(){
  const [confirmAction,setConfirmAction]=useState<'finish'|'new'|null>(null)
  const [levelNotice,setLevelNotice]=useState<number|null>(null)
  const [moveCheck,setMoveCheck]=useState<MoveCheck>('idle')
+ const [shareReady,setShareReady]=useState(false)
+ const [shareStatus,setShareStatus]=useState('')
  const moveWorker=useRef<Worker|null>(null)
  const moveRequest=useRef(0)
  const dict=useMemo(()=>createDictionary(allowAny),[allowAny])
@@ -100,14 +126,31 @@ export default function App(){
   if(completesLevel&&mode==='journey'&&game.level<MAX_LEVEL)setLevelNotice(game.level+1)
   setTentative([])
  }
- function finishRun(automatic=false){const candidate={initials:'',score:player.score,filled:filledCount,level:game.level,mode,date:''};const qualifies=scoreScope.length<10||ranksAbove(candidate,scoreScope.at(-1)!)<0;setGame(old=>{if(old.status==='over')return old;const n=clone(old);n.undo.push(snapshot(old));n.noMove=[0];n.passes.push({player:0,turn:n.turn,forced:automatic,time:new Date().toLocaleTimeString()});n.status='over';return n});setTentative([]);setConfirmAction(null);setInitials('');setEnteringScore(qualifies);setShowScores(true)}
- function resetOverlays(){cancelMoveCheck();setTentative([]);setDragging(null);setShowScores(false);setEnteringScore(false);setInitials('');setConfirmAction(null);setLevelNotice(null)}
+ function finishRun(automatic=false){const candidate={initials:'',score:player.score,filled:filledCount,level:game.level,mode,date:''};const qualifies=scoreScope.length<10||ranksAbove(candidate,scoreScope.at(-1)!)<0;setGame(old=>{if(old.status==='over')return old;const n=clone(old);n.undo.push(snapshot(old));n.noMove=[0];n.passes.push({player:0,turn:n.turn,forced:automatic,time:new Date().toLocaleTimeString()});n.status='over';return n});setTentative([]);setConfirmAction(null);setInitials('');setShareReady(false);setShareStatus('');setEnteringScore(qualifies);setShowScores(true)}
+ function resetOverlays(){cancelMoveCheck();setTentative([]);setDragging(null);setShowScores(false);setEnteringScore(false);setInitials('');setConfirmAction(null);setLevelNotice(null);setShareReady(false);setShareStatus('')}
  function startJourney(){setMode('journey');setSelectedLevel(1);setGame(createGame());resetOverlays();setScreen('game')}
  function startLevel(level:number){setMode('level');setSelectedLevel(level);setGame(createGame(level));resetOverlays();setScreen('game')}
  function newGame(){setGame(createGame(mode==='journey'?1:selectedLevel));resetOverlays()}
  function goHome(){resetOverlays();setScreen('home')}
  function mutate(fn:(n:GameState)=>void){setGame(old=>{const n=clone(old);n.undo.push(snapshot(old));fn(n);return n});setTentative([])}
- function saveHighScore(){if(initials.length!==3)return;const entry={initials,score:player.score,filled:filledCount,level:game.level,mode,date:new Date().toLocaleDateString()};const other=highScores.filter(item=>(item.mode??'journey')!==mode||(mode==='level'&&(item.level??1)!==game.level));const scoped=[...scoreScope,entry].sort(ranksAbove).slice(0,10);const next=[...other,...scoped];setHighScores(next);localStorage.setItem(HIGH_SCORE_KEY,JSON.stringify(next));setEnteringScore(false)}
+ function saveHighScore(){if(initials.length!==3)return;const entry={initials,score:player.score,filled:filledCount,level:game.level,mode,date:new Date().toLocaleDateString()};const other=highScores.filter(item=>(item.mode??'journey')!==mode||(mode==='level'&&(item.level??1)!==game.level));const scoped=[...scoreScope,entry].sort(ranksAbove).slice(0,10);const next=[...other,...scoped];setHighScores(next);localStorage.setItem(HIGH_SCORE_KEY,JSON.stringify(next));setEnteringScore(false);setShareReady(true)}
+ async function shareResult(){
+  setShareStatus('Preparing result…')
+  try{
+   const blob=await boardImage(game.board)
+   const label=mode==='journey'?`Journey · Level ${game.level}`:`Level Play · ${boardSize}×${boardSize}`
+   const text=`Torie ${label}\n${player.score} points · ${filledCount}/${boardTotal} spaces\nCan you beat my score?\n${SHARE_URL}`
+   const file=new File([blob],`torie-${mode}-${boardSize}x${boardSize}.png`,{type:'image/png'})
+   if(navigator.share&&navigator.canShare?.({files:[file]})){
+    await navigator.share({title:'Torie Solo',text,files:[file]});setShareStatus('Result shared.')
+   }else{
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=file.name;link.click();window.setTimeout(()=>URL.revokeObjectURL(link.href),1000)
+    let copied=false
+    try{if(navigator.clipboard){await navigator.clipboard.writeText(text);copied=true}}catch{/* The PNG download still succeeds without clipboard permission. */}
+    setShareStatus(copied?'Image saved and share text copied.':'Image saved. Copy the game link when you share it.')
+   }
+  }catch(error){if(error instanceof DOMException&&error.name==='AbortError'){setShareStatus('');return}setShareStatus('Sharing is not available in this browser.')}
+ }
  function Rack(){
   const p=game.players[0],active=game.status==='playing'
   const placed=new Set(tentative.map(x=>x.letter))
@@ -145,7 +188,7 @@ export default function App(){
      <div className="board-toolbar">
       <div className="toolbar-left"><button className="how-button" onClick={goHome}>Home</button><button className="how-button" onClick={()=>setShowHow(true)}>How to play</button></div>
       <div className="toolbar-brand"><img src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/></div>
-      <button className="how-button" onClick={()=>{setEnteringScore(false);setShowScores(true)}}>High scores</button>
+      <button className="how-button" onClick={()=>{setEnteringScore(false);setShareReady(false);setShareStatus('');setShowScores(true)}}>High scores</button>
      </div>
      <div className="board-wrap"><div className="board" style={{gridTemplateColumns:`repeat(${boardSize}, minmax(0, 1fr))`,width:`${boardSize*10}%`}}>{Array.from({length:boardSize},(_,r)=><div key={r} style={{display:'contents'}}>{Array.from({length:boardSize},(_,c)=>{const cell=game.board[r][c],pending=tentative.find(x=>x.row===r&&x.col===c);return <div key={`${r},${c}`} data-cell data-row={r} data-col={c} aria-label={`Row ${r+1}, column ${c+1}`} className={`cell ${cell?`filled owner-${cell.owner}`:''} ${cell?.moveId===lastId?'last':''} ${pending?'tentative':''}`}>{pending?<button className={`letter-tile board-tile stone-${game.active}`} onPointerDown={e=>{e.preventDefault();startDrag(pending.letter,e.clientX,e.clientY,r,c)}}><span>{pending.letter}</span></button>:cell?<div className={`letter-tile placed-tile stone-${cell.owner}`}><span>{cell.letter}</span></div>:null}</div>})}</div>)}</div></div>
     </div>
@@ -190,6 +233,7 @@ export default function App(){
     <p className="how-kicker">{mode==='journey'?'Journey':`${boardSize}×${boardSize} Level Play`}</p>
     <h2 id="scores-title">{enteringScore?'New High Score':'High Scores'}</h2>
     {enteringScore&&<div className="score-entry"><p><strong>{player.score}</strong> points · Level {game.level} · {filledCount}/{boardTotal}</p><label htmlFor="initials">Enter your initials</label><input id="initials" value={initials} maxLength={3} autoComplete="off" inputMode="text" onChange={e=>setInitials((e.target.value.match(/[A-Za-z]/g)??[]).join('').toUpperCase().slice(0,3))} placeholder="AAA"/><button onClick={saveHighScore} disabled={initials.length!==3}>Save score</button></div>}
+    {shareReady&&<div className="share-result"><button onClick={shareResult}>Share Result</button><p>Share a letterless picture of this board with your score and a link to Torie.</p>{shareStatus&&<span role="status">{shareStatus}</span>}</div>}
     <ol className="score-list">{scoreScope.map((entry,index)=><li key={`${entry.initials}-${entry.score}-${entry.filled}-${entry.date}-${index}`}><span className="score-rank">{index+1}</span><b>{entry.initials}</b><strong>{entry.score}</strong><span>{mode==='journey'?`L${entry.level??1}`:`${entry.filled}/${boardTotal}`}</span><small>{entry.date}</small></li>)}</ol>
     {!enteringScore&&scoreScope.length===0&&<p className="empty-scores">No scores yet. Finish a run to set the first one.</p>}
    </section>
@@ -204,6 +248,6 @@ export default function App(){
   </div>}
   {levelNotice&&<div className="level-notice" role="status"><strong>LEVEL {levelNotice} UNLOCKED</strong><span>{boardSizeForLevel(levelNotice)}×{boardSizeForLevel(levelNotice)} BOARD</span></div>}
   {dragging&&<div className={`drag-ghost letter-tile stone-${game.active}`} style={{left:dragPoint.x,top:dragPoint.y}}><span>{dragging.letter}</span></div>}
-  {screen==='game'&&game.status==='over'&&!showScores&&<div className="gameover"><div><p>{mode==='journey'?'JOURNEY COMPLETE':'LEVEL COMPLETE'}</p><h2>{boardSize}×{boardSize} · {filledCount} of {boardTotal} spaces</h2><strong>{game.players[0].score} points</strong><div className="gameover-actions"><button onClick={goHome}>Home</button><button onClick={newGame}>Play again</button></div></div></div>}
+  {screen==='game'&&game.status==='over'&&!showScores&&<div className="gameover"><div><p>{mode==='journey'?'JOURNEY COMPLETE':'LEVEL COMPLETE'}</p><h2>{boardSize}×{boardSize} · {filledCount} of {boardTotal} spaces</h2><strong>{game.players[0].score} points</strong>{shareReady&&<><button className="gameover-share" onClick={shareResult}>Share Result</button>{shareStatus&&<small className="gameover-share-status">{shareStatus}</small>}</>}<div className="gameover-actions"><button onClick={goHome}>Home</button><button onClick={newGame}>Play again</button></div></div></div>}
  </div>
 }
