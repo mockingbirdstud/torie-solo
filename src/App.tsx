@@ -1,7 +1,6 @@
-import {useEffect,useMemo,useState} from 'react'
+import {useEffect,useMemo,useRef,useState} from 'react'
 import {boardSizeForLevel,createBoard,isBoardFull,MAX_LEVEL} from './game/board'
 import {createDictionary} from './game/dictionary'
-import {findLegalMove} from './game/legalMoveSearch'
 import {advanceLevel,ALPHABET,createGame,snapshot,useLetters,VOWELS} from './game/state'
 import type {GameState} from './game/types'
 import {validateTentativeMove,type TentativeLetter} from './game/validation'
@@ -10,6 +9,7 @@ const clone=<T,>(x:T):T=>structuredClone(x)
 type DragTile={letter:string;row?:number;col?:number}
 type GameMode='journey'|'level'
 type Screen='home'|'levels'|'game'
+type MoveCheck='idle'|'checking'|'found'|'none'
 interface HighScore {initials:string;score:number;filled:number;level?:number;mode?:GameMode;date:string}
 const HIGH_SCORE_KEY='torie-solo-high-scores'
 const loadHighScores=():HighScore[]=>{try{return JSON.parse(localStorage.getItem(HIGH_SCORE_KEY)??'[]')}catch{return []}}
@@ -34,21 +34,35 @@ export default function App(){
  const [initials,setInitials]=useState('')
  const [confirmAction,setConfirmAction]=useState<'finish'|'new'|null>(null)
  const [levelNotice,setLevelNotice]=useState<number|null>(null)
+ const [moveCheck,setMoveCheck]=useState<MoveCheck>('idle')
+ const moveWorker=useRef<Worker|null>(null)
+ const moveRequest=useRef(0)
  const dict=useMemo(()=>createDictionary(allowAny),[allowAny])
  const player=game.players[game.active]
  const lastId=game.moves.at(-1)?.id
- const legal=useMemo(()=>game.status==='playing'?findLegalMove(game.board,player,dict):null,[game.board,player,dict,game.status])
  const check=useMemo(()=>validateTentativeMove(game.board,player,tentative,dict),[game.board,player,tentative,dict])
  const boardSize=game.board.length
  const boardTotal=boardSize*boardSize
  const filledCount=game.board.reduce((total,row)=>total+row.filter(Boolean).length,0)
  const previewBonus=check.result.valid?useLetters(player,check.result.placements.filter(x=>x.isNew).map(x=>x.letter)).bonus:0
+ const moveHeadline=tentative.length?(check.result.valid?'MOVE READY':'BUILD YOUR MOVE'):moveCheck==='checking'?'CHECKING FOR MOVES':moveCheck==='found'?'MOVE AVAILABLE':moveCheck==='none'?'NO MOVE FOUND':'BUILD YOUR MOVE'
+ const moveDetail=tentative.length?(check.result.valid?`${check.result.words.map(w=>w.word).join(' · ')}  |  +${check.result.score}${previewBonus?` + ${previewBonus} reset bonus`:''}`:check.result.errors[0]):moveCheck==='checking'?'You can keep viewing the board while Torie checks.':moveCheck==='found'?'At least one legal move is still available.':moveCheck==='none'?'No legal move was found. Finish the run when you are ready.':'Drag at least one tile onto the board.'
  const scoreScope=highScores.filter(entry=>(entry.mode??'journey')===mode&&(mode==='journey'||(entry.level??1)===game.level))
- useEffect(()=>{if(game.status==='playing'&&game.moves.length>0&&!legal&&!tentative.length)finishRun(true)},[legal,game.status,game.moves.length,tentative.length])
+ useEffect(()=>()=>moveWorker.current?.terminate(),[])
  useEffect(()=>{if(!levelNotice)return;const timer=window.setTimeout(()=>setLevelNotice(null),1800);return()=>window.clearTimeout(timer)},[levelNotice])
  useEffect(()=>{if(mode!=='level'||game.status!=='over'||!isBoardFull(game.board))return;const candidate={initials:'',score:game.players[0].score,filled:boardTotal,level:game.level,mode,date:''};const qualifies=scoreScope.length<10||ranksAbove(candidate,scoreScope.at(-1)!)<0;setInitials('');setEnteringScore(qualifies);setShowScores(true)},[game.status])
 
- function startDrag(letter:string,x:number,y:number,row?:number,col?:number){setDragging({letter,row,col});setDragPoint({x,y})}
+ function cancelMoveCheck(){moveRequest.current++;moveWorker.current?.terminate();moveWorker.current=null;setMoveCheck('idle')}
+ function checkForMoves(){
+  if(moveCheck==='checking'||game.status!=='playing')return
+  const id=++moveRequest.current
+  const worker=new Worker(new URL('./game/legalMoveWorker.ts',import.meta.url),{type:'module'})
+  moveWorker.current?.terminate();moveWorker.current=worker;setMoveCheck('checking')
+  worker.onmessage=(event:{data:{id:number;move:unknown}})=>{if(event.data.id!==moveRequest.current)return;setMoveCheck(event.data.move?'found':'none');worker.terminate();if(moveWorker.current===worker)moveWorker.current=null}
+  worker.onerror=()=>{if(id!==moveRequest.current)return;setMoveCheck('idle');worker.terminate();if(moveWorker.current===worker)moveWorker.current=null}
+  worker.postMessage({id,board:game.board,player,allowAny})
+ }
+ function startDrag(letter:string,x:number,y:number,row?:number,col?:number){if(moveCheck!=='idle')setMoveCheck('idle');setDragging({letter,row,col});setDragPoint({x,y})}
  function dropOnBoard(row:number,col:number){
   if(!dragging||game.board[row][col])return
   setTentative(old=>{
@@ -70,6 +84,7 @@ export default function App(){
  }
  function confirm(){
   if(!check.input||!check.result.valid)return
+  cancelMoveCheck()
   const input=check.input,result=check.result
   const completesLevel=filledCount+result.placements.filter(x=>x.isNew).length===boardTotal
   setGame(old=>{const n=clone(old);n.undo.push(snapshot(old));const id=(n.moves.at(-1)?.id??0)+1
@@ -86,7 +101,7 @@ export default function App(){
   setTentative([])
  }
  function finishRun(automatic=false){const candidate={initials:'',score:player.score,filled:filledCount,level:game.level,mode,date:''};const qualifies=scoreScope.length<10||ranksAbove(candidate,scoreScope.at(-1)!)<0;setGame(old=>{if(old.status==='over')return old;const n=clone(old);n.undo.push(snapshot(old));n.noMove=[0];n.passes.push({player:0,turn:n.turn,forced:automatic,time:new Date().toLocaleTimeString()});n.status='over';return n});setTentative([]);setConfirmAction(null);setInitials('');setEnteringScore(qualifies);setShowScores(true)}
- function resetOverlays(){setTentative([]);setDragging(null);setShowScores(false);setEnteringScore(false);setInitials('');setConfirmAction(null);setLevelNotice(null)}
+ function resetOverlays(){cancelMoveCheck();setTentative([]);setDragging(null);setShowScores(false);setEnteringScore(false);setInitials('');setConfirmAction(null);setLevelNotice(null)}
  function startJourney(){setMode('journey');setSelectedLevel(1);setGame(createGame());resetOverlays();setScreen('game')}
  function startLevel(level:number){setMode('level');setSelectedLevel(level);setGame(createGame(level));resetOverlays();setScreen('game')}
  function newGame(){setGame(createGame(mode==='journey'?1:selectedLevel));resetOverlays()}
@@ -139,11 +154,11 @@ export default function App(){
      <div><span>Level {game.level} · {boardSize}×{boardSize}</span><strong>{filledCount}<small>/{boardTotal}</small></strong></div>
     </section>
     <section className="move-bar">
-     <div className="move-state"><span className={check.result.valid?'ready':'waiting'}>{check.result.valid?'MOVE READY':'BUILD YOUR MOVE'}</span><strong>{check.result.valid?`${check.result.words.map(w=>w.word).join(' · ')}  |  +${check.result.score}${previewBonus?` + ${previewBonus} reset bonus`:''}`:check.result.errors[0]}</strong></div>
+     <div className="move-state"><span className={tentative.length&&check.result.valid||moveCheck==='found'?'ready':'waiting'}>{moveHeadline}</span><strong>{moveDetail}</strong></div>
      <div className="move-actions">
       <button onClick={()=>setConfirmAction('finish')}>Finish run</button>
       <button onClick={()=>filledCount?setConfirmAction('new'):newGame()}>New game</button>
-      <button onClick={()=>setTentative([])} disabled={!tentative.length}>Cancel</button>
+      {tentative.length?<button onClick={()=>setTentative([])}>Cancel</button>:<button onClick={checkForMoves} disabled={moveCheck==='checking'}>{moveCheck==='checking'?'Checking…':'Check moves'}</button>}
       <button className="submit" onClick={confirm} disabled={!check.result.valid}>Submit</button>
      </div>
     </section>
@@ -165,6 +180,7 @@ export default function App(){
     <h3>Use Every Letter Wisely.</h3>
     <p>Use all five vowels and they refresh. Use every consonant and the full alphabet refreshes. Clear both together to earn a 10-point bonus.</p>
     <p>Every new tile scores 1 point. Your letters and points carry forward as the boards grow, so plan for the board in front of you—and the levels still to come.</p>
+    <p><strong>Check moves</strong> searches in the background when you want help confirming whether any legal play remains. It never interrupts the board or ends your run automatically.</p>
     <p className="how-ending">Plan the board in front of you—and, in Journey, every board still to come.</p>
    </section>
   </div>}
