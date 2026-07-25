@@ -8,7 +8,7 @@ import {validateTentativeMove,type TentativeLetter} from './game/validation'
 const clone=<T,>(x:T):T=>structuredClone(x)
 type DragTile={letter:string;row?:number;col?:number}
 type GameMode='journey'|'classic'
-type Screen='home'|'game'
+type Screen='intro'|'home'|'game'
 type MoveCheck='idle'|'checking'|'found'|'none'
 interface HighScore {initials:string;score:number;filled:number;level?:number;mode?:GameMode|'level';date:string}
 const HIGH_SCORE_KEY='torie-solo-high-scores'
@@ -16,6 +16,23 @@ const loadHighScores=():HighScore[]=>{try{return JSON.parse(localStorage.getItem
 const ranksAbove=(a:HighScore,b:HighScore)=>b.score-a.score||b.filled-a.filled
 const scoreMode=(entry:HighScore):GameMode=>entry.mode==='level'?'classic':entry.mode??'journey'
 const SHARE_URL='https://mockingbirdstud.github.io/torie-solo/'
+const INTRO_WORDS=[['CAN','YOU','BEAT','ME?'],['BEST','PUZZLE','GAME','EVER']] as const
+const INTRO_ROWS=[[1,3,5,7],[0,2,4,6]] as const
+const RANDOM_LETTERS='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+function introTiles(words:readonly string[],rows:readonly number[]){
+ const tiles=new Map<string,string>()
+ words.forEach((word,index)=>{
+  const start=0
+  ;[...word].forEach((letter,col)=>tiles.set(`${rows[index]}-${start+col}`,letter))
+ })
+ return tiles
+}
+function randomIntroBoard(){
+ const tiles=new Map<string,string>()
+ for(let row=0;row<8;row++)for(let col=0;col<8;col++)tiles.set(`${row}-${col}`,RANDOM_LETTERS[Math.floor(Math.random()*RANDOM_LETTERS.length)])
+ return tiles
+}
 
 function roundedRect(context:CanvasRenderingContext2D,x:number,y:number,width:number,height:number,radius:number){
  context.beginPath();context.roundRect(x,y,width,height,radius);context.fill()
@@ -41,7 +58,11 @@ function boardImage(board:Board):Promise<Blob>{
 }
 
 export default function App(){
- const [screen,setScreen]=useState<Screen>('home')
+ const [screen,setScreen]=useState<Screen>('intro')
+ const [introPhrase,setIntroPhrase]=useState<0|1>(0)
+ const [introSettledThrough,setIntroSettledThrough]=useState(-1)
+ const [introLeaving,setIntroLeaving]=useState(false)
+ const [introLetters,setIntroLetters]=useState(randomIntroBoard)
  const [mode,setMode]=useState<GameMode>('journey')
  const [game,setGame]=useState<GameState>(createGame)
  const [tentative,setTentative]=useState<TentativeLetter[]>([])
@@ -74,6 +95,18 @@ export default function App(){
  const moveHeadline=tentative.length?(check.result.valid?'MOVE READY':'BUILD YOUR MOVE'):moveCheck==='checking'?'CHECKING FOR MOVES':moveCheck==='found'?'MOVE AVAILABLE':moveCheck==='none'?'NO MOVE FOUND':'BUILD YOUR MOVE'
  const moveDetail=tentative.length?(check.result.valid?`${check.result.words.map(w=>w.word).join(' · ')}  |  +${check.result.score}${previewBonus?` + ${previewBonus} reset bonus`:''}`:check.result.errors[0]):moveCheck==='checking'?'You can keep viewing the board while Torie checks.':moveCheck==='found'?'At least one legal move is still available.':moveCheck==='none'?'No legal move was found. Finish the run when you are ready.':'Drag at least one tile onto the board.'
  const leaderboard=[...highScores].sort(ranksAbove).slice(0,10)
+ useEffect(()=>{
+  if(screen!=='intro')return
+  const timers:number[]=[]
+  let interval=window.setInterval(()=>setIntroLetters(randomIntroBoard()),85)
+  ;[0,1,2,3,4,5,6,7].forEach(row=>timers.push(window.setTimeout(()=>setIntroSettledThrough(row),1200+row*210)))
+  timers.push(window.setTimeout(()=>{window.clearInterval(interval);setIntroPhrase(1);setIntroSettledThrough(-1);setIntroLetters(randomIntroBoard());interval=window.setInterval(()=>setIntroLetters(randomIntroBoard()),85)},4500))
+  ;[0,1,2,3,4,5,6,7].forEach(row=>timers.push(window.setTimeout(()=>setIntroSettledThrough(row),5700+row*210)))
+  timers.push(window.setTimeout(()=>window.clearInterval(interval),7400))
+  timers.push(window.setTimeout(()=>setIntroLeaving(true),9500))
+  timers.push(window.setTimeout(()=>setScreen('home'),10200))
+  return()=>{window.clearInterval(interval);timers.forEach(window.clearTimeout)}
+ },[screen])
  useEffect(()=>()=>moveWorker.current?.terminate(),[])
  useEffect(()=>{if(!levelNotice)return;const timer=window.setTimeout(()=>setLevelNotice(null),1800);return()=>window.clearTimeout(timer)},[levelNotice])
  useEffect(()=>{if(mode!=='classic'||game.status!=='over'||!isBoardFull(game.board))return;const candidate={initials:'',score:game.players[0].score,filled:boardTotal,level:game.level,mode,date:''};const qualifies=leaderboard.length<10||ranksAbove(candidate,leaderboard.at(-1)!)<0;setInitials('');setEnteringScore(qualifies);setShowScores(true)},[game.status])
@@ -163,7 +196,11 @@ export default function App(){
  }
 
  return <div className={`app ${screen!=='game'?'home-app':''} ${dragging?'is-dragging':''}`} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={()=>setDragging(null)}>
-  {screen!=='game'?<main className="home-screen">
+  {screen==='intro'?<button className={`intro-screen ${introLeaving?'leaving':''}`} onClick={()=>setScreen('home')} aria-label="Skip introduction">
+   <img className="intro-logo" src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/>
+   <div className="intro-board" aria-label={INTRO_WORDS[introPhrase].join(' ')}>{Array.from({length:64},(_,index)=>{const row=Math.floor(index/8),col=index%8,settled=row<=introSettledThrough,target=introTiles(INTRO_WORDS[introPhrase],INTRO_ROWS[introPhrase]).get(`${row}-${col}`),letter=settled?(target??''):introLetters.get(`${row}-${col}`);return <span className="intro-cell" key={index}><span className={`intro-tile ${settled?'settled':'flipping'}`} style={!settled?{animationDelay:`${row*95+col*10}ms`}:undefined}>{letter&&<span className="intro-glyph" key={`${introPhrase}-${row}-${col}-${letter}`}>{letter}</span>}</span></span>})}</div>
+   <span className="intro-skip">Tap to skip</span>
+  </button>:screen==='home'?<main className="home-screen">
    <img className="home-logo" src={`${import.meta.env.BASE_URL}torie-title.png`} alt="Torie"/>
    <p className="home-kicker">THE ULTIMATE WORD PUZZLE</p>
    <div className="mode-cards">
